@@ -45,6 +45,8 @@ namespace SpotifyStatusApplet
         private volatile bool m_keepRunning = true;
         private volatile bool m_showTitles = false;
 
+        private volatile int command = 0;
+
         private SpotifyAPI m_spotifyApiInstance;
         private Responses.CFID m_cfid;
 
@@ -78,7 +80,7 @@ namespace SpotifyStatusApplet
         {
             bool showTitles = true;
 
-            if (args != null && args.Length !=0)
+            if (args != null && args.Length != 0)
             {
                 if (args[0] == "notitles")
                 {
@@ -133,13 +135,17 @@ namespace SpotifyStatusApplet
                         // TODO add the implementation as a future project
                         ssa.m_qvgaArrived = false;
                     }
-                    
+
                     // DoUpdateAndDraw only occurs at the framerate specified by LcdPage.DesiredFrameRate, which is 30 by default.
                     if (true == applet.IsEnabled &&
                         null != monoDevice &&
                         false == monoDevice.IsDisposed)
                     {
-                        ssa.m_lcdGraphics.setMediaPlayerDetails(ssa.getCurrentSpotifyDetails());
+                        
+                        ssa.m_lcdGraphics.setMediaPlayerDetails(ssa.getCurrentSpotifyDetails(ssa.command));
+
+                        ssa.command = 0;
+
                         ssa.m_lcdGraphics.setShowTitles(ssa.m_showTitles);
                         monoDevice.DoUpdateAndDraw();
                     }
@@ -163,7 +169,7 @@ namespace SpotifyStatusApplet
             if (m_cfid.error != null)
             {
                 Console.WriteLine(string.Format("Spotify returned a error {0} (0x{1})", m_cfid.error.message, m_cfid.error.type));
-               // Thread.Sleep(-1);
+                // Thread.Sleep(-1);
             }
             else
             {
@@ -173,10 +179,39 @@ namespace SpotifyStatusApplet
         }
 
         // Obtain the current details of the Spotify player, both track info and the player status
-        private MediaPlayerDetails getCurrentSpotifyDetails()
+        // Functions 
+        // 0: get status
+        // 1: Play
+        // 2: Resume
+        // 3: Pause
+        // 4: 
+        private MediaPlayerDetails getCurrentSpotifyDetails(int function)
         {
             MediaPlayerDetails retVal = new MediaPlayerDetails();
-            Responses.Status Current_Status = m_spotifyApiInstance.Status;
+            Responses.Status Current_Status;
+            switch (function)
+            {
+                case 0:
+               Current_Status = m_spotifyApiInstance.Status;
+                break;
+
+                case 1:
+                Current_Status = m_spotifyApiInstance.Play;
+                break;
+
+                case 2:
+                Current_Status = m_spotifyApiInstance.Resume;
+                break;
+
+                case 3:
+                Current_Status = m_spotifyApiInstance.Pause;
+                break;
+
+                default:
+                Current_Status = m_spotifyApiInstance.Status;
+                break;
+            }
+
             if (m_cfid.error != null)
             {
                 Console.WriteLine(string.Format("Spotify returned a error {0} (0x{1})", m_cfid.error.message, m_cfid.error.type));
@@ -203,7 +238,7 @@ namespace SpotifyStatusApplet
         // Launch the thread that manages the notification tray icon
         private void setupTrayIcon()
         {
-            var myThread = new Thread(delegate()
+            var myThread = new Thread(delegate ()
             {
                 using (AppTrayIcon ati = new AppTrayIcon(this))
                 {
@@ -219,7 +254,7 @@ namespace SpotifyStatusApplet
         // Event handler for new device arrical in the system.
         // Monochrome devices include (G510, G13, G15, Z10)
         private void appletDeviceArrival(object sender, LcdDeviceTypeEventArgs e)
-        {            
+        {
             switch (e.DeviceType)
             {
                 // A monochrome device (G13/G15/Z10) was connected
@@ -234,7 +269,7 @@ namespace SpotifyStatusApplet
             }
 
             m_waitAutoResetEvent.Set();
-        }       
+        }
 
         /////////////////////////////////////////////
         // Unused functions at this time
@@ -273,13 +308,14 @@ namespace SpotifyStatusApplet
             // Second button 
             if ((e.SoftButtons & LcdSoftButtons.Button1) == LcdSoftButtons.Button1)
             {
+                command = 2;
 
             }
 
             // Third button 
             if ((e.SoftButtons & LcdSoftButtons.Button2) == LcdSoftButtons.Button2)
             {
-
+                command = 3;
             }
 
             // Fourth button 
